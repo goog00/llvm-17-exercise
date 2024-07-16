@@ -40,7 +40,11 @@ public:
   enum DeclKind {
     DK_Module,
     DK_Const,
-    DK_Type,
+    DK_AliasType,
+    DK_ArrayType,
+    DK_PervasiveType,
+    DK_PointerType,
+    DK_RecordType,
     DK_Var,
     DK_Param,
     DK_Proc
@@ -108,14 +112,96 @@ public:
 
 class TypeDeclaration : public Decl {
 public:
-  TypeDeclaration(Decl *EnclosingDecL, SMLoc Loc,
+  TypeDeclaration(DeclKind Kind,  Decl *EnclosingDecL, SMLoc Loc,
                   StringRef Name)
-      : Decl(DK_Type, EnclosingDecL, Loc, Name) {}
+      : Decl(Kind,DK_Type, EnclosingDecL, Loc, Name) {}
 
   static bool classof(const Decl *D) {
-    return D->getKind() == DK_Type;
+    return D->getKind() >= DK_Type &&
+           D->getKind() <= DK_RecordType;
   }
 };
+
+class AliasTypeDeclaration : public TypeDeclaration {
+  TypeDeclaration *Type;
+
+public:
+  AliasTypeDeclaration(Decl *EnclosingDel, SMLoc Loc, StringRef Name,
+                        TypeDeclaration *Type)
+                        : TypeDeclaration(DK_AliasType,EnclosingDecl,Loc,Name),Type(Type) {}
+
+  TypeDeclaration *getType() const {return Type;}       
+
+  static bool classof(const Decl *D) {
+    return D->getKind() == DK_AliasType;
+  }                      
+};
+
+
+class ArrayTypeDeclaration : public TypeDeclaration {
+  Expr *Nums;
+  TypeDeclaration *Type;
+
+public:
+  ArrayTypeDeclaration(Decl *EnclosingDecl,SMLoc Loc,StringRef Name, Expr *Nums,TypeDeclaration *Type)
+          : TypeDeclaration(DK_ArrayType,EnclosingDecl,Loc,Name), Nums(Nums),Type(Type) {}
+ 
+
+  Expr *getNums() const {return Nums;}
+  TypeDeclaration *getType() const {return Type;} 
+  
+  static bool classof(const Decl *D){
+    return D->getKind() == DK_ArrayType;
+  }
+};
+
+class PervasiveTypeDeclaration : public TypeDeclaration {
+
+public:
+  PervasiveTypeDeclaration(Decl *EnclosingDecl, SMLoc Loc, StringRef Name)
+          : TypeDeclaration(DK_PervasiveType, EnclosingDecl,Loc,Name){}
+  
+  static bool classof(const Decl *D) {
+    return D->getKind() == DK_PervasiveType;
+  }
+
+};
+
+
+class PointerTypeDeclaration : public TypeDeclaration {
+    TypeDeclaration *Type;
+
+public:
+  PointerTypeDeclaration(Decl *EnclosingDecl, SMLoc Loc,StringRef Name, TypeDeclaration *Type)
+          : TypeDeclaration(DK_PointerType, EnclosingDecl, Loc, Name),
+          Type(Type) {}
+
+  TypeDeclaration *getType() const { return Type;}
+
+  static bool classof(const Decl *D) {
+    return D->getKind() == DK_PointerType;
+  }            
+};
+
+
+class RecordTypeDeclaration : public TypeDeclaration {
+  FieldList Fields;
+
+public:
+  RecordTypeDeclaration(Decl *EnclosingDecL, SMLoc Loc,
+                        StringRef Name,
+                        const FieldList &Fields)
+      : TypeDeclaration(DK_RecordType, EnclosingDecL, Loc,
+                        Name),
+        Fields(Fields) {}
+
+  const FieldList &getFields() const { return Fields; }
+
+  static bool classof(const Decl *D) {
+    return D->getKind() == DK_RecordType;
+  }
+};
+
 
 class VariableDeclaration : public Decl {
   TypeDeclaration *Ty;

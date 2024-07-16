@@ -15,11 +15,48 @@ void CGModule::initialize() {
 }
 
 llvm::Type *CGModule::convertType(TypeDeclaration *Ty) {
-  if (Ty->getName() == "INTEGER")
-    return Int64Ty;
-  if (Ty->getName() == "BOOLEAN")
-    return Int1Ty;
-  llvm::report_fatal_error("Unsupported type");
+   if(llvm::Type *T = TypeCache[Ty]){
+    return T;
+   }
+
+   if(llvm::isa<PervasiveTypeDeclaration>(Ty)){
+      if(Ty->getName() == "INTEGER")
+        return Int64Ty;
+      if(Ty->getName() == "BOOLEAN")
+        return Int1Ty;
+
+   } else if(auto *AliasTy = llvm::dyn_cast<AliasTypeDeclaration>(Ty)){
+    
+      llvm::Type *T = convertType(AliasTy->getType());
+      return TypeCache[Ty] = T;
+
+   } else if(auto * ArrayTy = llvm::dyn_cast<ArrayTypeDeclaration>(Ty)) {
+
+    llvm::Type *Component = convertType(ArrayTy->getType());
+
+    Expr *Nums = ArrayTy->getNums();
+    assert(llvm::cast<IntegerLiteral>(Nums) && "Expected an integer literal");
+
+    uint64_t NumElements = llvm::cast<IntegerLiteral>(Nums)->getValue().getZExtValue();
+
+    llvm::Type *T = 
+          llvm::ArrayType::get(Component,NumElements);
+
+    return TypeCache[Ty] = T;      
+   } else if (auto *RecordTy = llvm::dyn_cast<RecordTypeDeclaration>(Ty)){
+     llvm::SmallVector<llvm::Type *,4> Elements;
+     for(const auto &F : RecordTy->getFields()){
+      Elements.push_back(convertType(F.getType()));
+     }
+
+     llvm:Type *T = llvm::StructType::create(
+          Elements,RecordTy->getName(),false
+     );
+
+     return TypeCache[Ty] = T;
+   }
+
+   llvm::report_fatal_error("Unsupport type");
 }
 
 std::string CGModule::mangleName(Decl *D) {

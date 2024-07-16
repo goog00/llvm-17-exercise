@@ -289,9 +289,51 @@ llvm::Value *CGProcedure::emitExpr(Expr *E) {
   } else if (auto *Var =
                  llvm::dyn_cast<VariableAccess>(E)) {
     auto *Decl = Var->getDecl();
+    llvm:: *Val = readVariable(Curr, Decl);
     // With more languages features in place, here you need
     // to add array and record support.
-    return readVariable(Curr, Decl);
+    auto &Selectors = Var->getSelectors();
+    for(auto I = Selectors.begin(), E= Selectors.end(); I != E){
+      if(auto *IdxSel = llvm::dyn_cast<IndexSelector>(*I)) {
+        llvm::SmallVector<llvm::Value *, 4> IdxList;
+        while( I != E){
+          if(auto *Secl = 
+                  llvm::dyn_cast<IndexSelector>(*I)){
+            IdxList.push_back(emitExpr(Sel->getIndex()));
+            ++I;
+          } else 
+              break;
+
+        }
+        Val = Builder.CreateInBoundsGEP(Val->getType(),Val,IdxList);
+        Val = Builder.CreateLoad(Val->getType(),Val);
+      } else if(auto *FieldSel = llvm::dyn_cast<FieldSelector>(*I)){
+        llvm::SmallVector<llvm::Value *,4> IdxList;
+
+        while(I != E) {
+          if(auto *Sel = llvm::dyn_cast<FieldSelector>(*I)){
+            llvm::Value *V = llvm::ConstantInt::get(CGM.Int64Ty,Sel->getIndex());
+            IdxList.push_back(V);
+            ++I;
+
+          } else 
+            break;
+        }
+
+        Val = Builder.CreateInBoundsGEP(Val->getType(),Val,IdxList);
+        Val = Builder.CreateLoad(Val->getType(),Val);
+        
+
+      } else if(auto *DerefSel = llvm::dyn_cast<DereferenceSelector>(*I)){
+        
+        Val = Builder.CreateLoad(Val->getType(),Val);
+        ++I;
+
+      } else {
+        llvm::report_fatal_error("Unsupported selector");
+      }
+    }
+    return Val;
   } else if (auto *Const =
                  llvm::dyn_cast<ConstantAccess>(E)) {
     return emitExpr(Const->getDecl()->getExpr());
@@ -309,7 +351,40 @@ llvm::Value *CGProcedure::emitExpr(Expr *E) {
 
 void CGProcedure::emitStmt(AssignmentStatement *Stmt) {
   auto *Val = emitExpr(Stmt->getExpr());
-  writeVariable(Curr, Stmt->getVar(), Val);
+  // writeVariable(Curr, Stmt->getVar(), Val);
+  Designator *Desig = Stmt->getVar();
+
+  auto &Selectors = Desig->getSelectors();
+
+  if(Selectors.empty()) 
+    writeLocalVariable(Curr,Desig->getDecl(),Val);
+  else {
+    llvm::SmallVector<llvm::Value *,4> IdxList;
+
+    IdxList.push_back(llvm::ConstantInt::get(CGM.Int32Ty,0));
+
+    auto *Base = readLocalVariable(Curr,Desig->getDecl(),false);
+
+    for(auto I = Selectors.begin(), E= Selectors.end(); I != E; ++I) {
+      if(auto *IdxSel = llvm::dyn_cast<IndexSelector>(*I)){
+        IdxList.push_back(emitExpr(IdxSel->getIndx()));
+      } else if (auto *FieldSel = llvm::dyn_cast<FieldSelector>(*I)) {
+        llvm::Value *V = llvm::ConstantInt::get(CGM.Int32Ty,FieldSel->getIndex());
+        IdxList.push_back(V);
+      } else {
+        llvm::report_fatal_error("not implemented");
+      }
+    }
+
+    if(!IdxList.empty()){
+      if(Base->getType()->isPointerTy()){
+        Base = Builder.CreateInBoundsGEP(mapType(Desig->getDecl()),Base,IdxList);
+        Builder.CreateStore(Val,Base);
+      } else {
+        llvm::report_fatal_error("should not happen");
+      }
+    }
+  }  
 }
 
 void CGProcedure::emitStmt(ProcedureCallStatement *Stmt) {
