@@ -1,0 +1,7 @@
+/Users/steng/compiler/llvm-17-exercise/Chapter09/buildjit/CMakeFiles/intrinsics_gen.dir
+/Users/steng/compiler/llvm-17-exercise/Chapter09/buildjit/CMakeFiles/omp_gen.dir
+/Users/steng/compiler/llvm-17-exercise/Chapter09/buildjit/CMakeFiles/acc_gen.dir
+/Users/steng/compiler/llvm-17-exercise/Chapter09/buildjit/CMakeFiles/RISCVTargetParserTableGen.dir
+/Users/steng/compiler/llvm-17-exercise/Chapter09/buildjit/CMakeFiles/JIT.dir
+/Users/steng/compiler/llvm-17-exercise/Chapter09/buildjit/CMakeFiles/edit_cache.dir
+/Users/steng/compiler/llvm-17-exercise/Chapter09/buildjit/CMakeFiles/rebuild_cache.dir
